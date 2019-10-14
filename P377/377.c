@@ -56,7 +56,6 @@ int * insertAtFront(int value, int* arr, int size){
 	return new_arr;
 }
 
-
 struct Number addArrays(int* arr1, int* arr2, int arr1_size, int arr2_size){
 	int *new_arr, *tmp_arr, *tmp_arr2, tmp_arr_size;
 	if (arr1_size >= arr2_size){
@@ -140,6 +139,7 @@ struct Number addArrays(int* arr1, int* arr2, int arr1_size, int arr2_size){
 //l = current digit length being tested
 //prev = previous digits in recursion 
 //orig_size = l at the first iteration
+/* void findNumsWithDigitalSum(int n_sum, int l, int* prev, int orig_size, int *myNodesNums){ */ 
 void findNumsWithDigitalSum(int n_sum, int l, int* prev, int orig_size){ 
 
 	if (l == 1){ //Base case. Gather permutation
@@ -181,8 +181,37 @@ void findNumsWithDigitalSum(int n_sum, int l, int* prev, int orig_size){
 	}
 }
 
+int* scatter(int me, int nprocs){
+	int arr[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+	int blocksize = 9/nprocs;
+	int left = 9 % nprocs;
+	
+	if (me == 0){
+		blocksize += left;
+	}
+	
+	int* my_block = malloc(blocksize*sizeof(int));
+	MPI_Scatter(arr, blocksize, MPI_INT, my_block, blocksize, MPI_INT, 0, MPI_COMM_WORLD);
+	printf("BLOCK FOR NODE: %d\n", me);
+	int i;
+	for (i = 0; i < blocksize; i++){
+		printf("%d", my_block[i]);
+	}
+	printf("\n");
+
+	return my_block;
+}
+
 
 int main(int argc, char* argv[]){
+	MPI_Init(NULL, NULL); 
+	int nprocs; 
+	MPI_Comm world = MPI_COMM_WORLD;
+	MPI_Comm_size(world, &nprocs);
+	int me;
+	MPI_Comm_rank(world, &me);
+
+
 	int digital_sum, result, l, *tmp_prev, i;
 	digital_sum = atoi(argv[1]);
 	int arr_zero[1] = {0};
@@ -197,6 +226,11 @@ int main(int argc, char* argv[]){
 		findNumsWithDigitalSum(digital_sum, i, tmp_prev, i); 
 	}
 	free(tmp_prev);
+
+	int* tmp; 
+	tmp = scatter(me, nprocs);
+
+	MPI_Finalize();
 
 	/* int arr1[2] = {7, 4}; */
 	/* int arr2[2] = {4, 1}; */
