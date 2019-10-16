@@ -12,6 +12,7 @@
 int global_sum[1] = {0};
 int global_sum_size = 1;
 
+int nprocs, me;
 
 struct Number{
 	int* arr;
@@ -134,6 +135,53 @@ struct Number addArrays(int* arr1, int* arr2, int arr1_size, int arr2_size){
 
 }
 
+struct Number scatter(int me, int nprocs, int sequ_size){
+	int  blocksize, orig, *my_block, *arr, k;
+	/* int arr[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9}; */
+	arr = malloc(sequ_size * sizeof(int));
+	for (k = 1; k <= sequ_size; k++){
+		arr[k-1] = k;
+	}
+	
+	if (nprocs <=  sequ_size){
+		blocksize = sequ_size/nprocs;
+		orig = blocksize;
+
+		int left = sequ_size % nprocs;
+		
+		if (me == nprocs-1){
+			blocksize += left;
+		}
+
+		int startIndex = (me * orig);
+		/* printf("BLOCKSIZE: %d & start index: %d\n", blocksize, startIndex); */
+		
+		my_block = malloc(blocksize*sizeof(int));
+		int i;
+		for (i = 0; i < blocksize; i++){
+			my_block[i] = arr[startIndex + i];
+		}
+	}
+	else {
+		blocksize = 1;
+		my_block = malloc(blocksize*sizeof(int));
+		if (me < sequ_size){
+			my_block[0] = arr[me];
+		}
+		else {
+			my_block[0] = 0;
+		}
+	}
+	/* printf("BLOCK FOR NODE: %d\n", me); */
+	/* int j; */
+	/* for (j = 0; j < blocksize; j++){ */
+	/* 	printf("%d", my_block[j]); */
+	/* } */
+	/* printf("\n"); */
+	struct Number num = {my_block, blocksize};
+	return num;
+
+}
 
 //n_sum = target digital sum
 //l = current digit length being tested
@@ -152,89 +200,73 @@ void findNumsWithDigitalSum(int n_sum, int l, int* prev, int orig_size){
 			}
 		}
 
-		/* printNumber(prev, orig_size); */
+		printf("For node %d: ", me);
+		printNumber(prev, orig_size);
 		globalSum = addArrays(globalSum.arr, prev, globalSum.size, orig_size);
-		printf("Sum: ");
-		printNumber(globalSum.arr, globalSum.size);
+		/* printf("Sum: "); */
+		/* printNumber(globalSum.arr, globalSum.size); */
 
-		/* global_sum = addArrays(global_sum, prev, global_sum_size, orig_size); */
 
-		/* unsigned long long int num; */
-		/* num = getNumFromIntArray(prev, orig_size); */
-		/* printf("CHECK: %lld\n", num); */
 		return;
 	}
 
 	int first_digit_max, i; 
 	first_digit_max = n_sum - (l - 1);
+	struct Number my_block; 
+	my_block = scatter(me, nprocs, first_digit_max);
 
-	for (i = 1; i <= first_digit_max; i++){
+	for (i = 0; i < my_block.size; i++){
+		if (my_block.arr[i] == 0){ continue; }
+		/* printf("CURRENT: %d\n", my_block.arr[i]); */
 		int left, spot;
-		left = n_sum - i;
+		left = n_sum - my_block.arr[i];
 		spot = orig_size - l;
-		prev[spot] = i;
+		prev[spot] = my_block.arr[i];
 
 
 		findNumsWithDigitalSum(left, l-1, prev, orig_size); //Recurse with l = l-1 and n_sum = remaining digital sum
 
 
 	}
+
+	/* for (i = 1; i <= first_digit_max; i++){ */
+	/* 	int left, spot; */
+	/* 	left = n_sum - i; */
+	/* 	spot = orig_size - l; */
+	/* 	prev[spot] = i; */
+
+
+	/* 	findNumsWithDigitalSum(left, l-1, prev, orig_size); //Recurse with l = l-1 and n_sum = remaining digital sum */
+
+
+	/* } */
 }
 
-int* scatter(int me, int nprocs){
-	int arr[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-	int blocksize = 9/nprocs;
-	int left = 9 % nprocs;
-	
-	if (me == 0){
-		blocksize += left;
-	}
-	
-	int* my_block = malloc(blocksize*sizeof(int));
-	MPI_Scatter(arr, blocksize, MPI_INT, my_block, blocksize, MPI_INT, 0, MPI_COMM_WORLD);
-	printf("BLOCK FOR NODE: %d\n", me);
-	int i;
-	for (i = 0; i < blocksize; i++){
-		printf("%d", my_block[i]);
-	}
-	printf("\n");
-
-	return my_block;
-}
 
 
 int main(int argc, char* argv[]){
 	MPI_Init(NULL, NULL); 
-	int nprocs; 
 	MPI_Comm world = MPI_COMM_WORLD;
 	MPI_Comm_size(world, &nprocs);
-	int me;
 	MPI_Comm_rank(world, &me);
 
 
 	int digital_sum, result, l, *tmp_prev, i;
 	digital_sum = atoi(argv[1]);
 	int arr_zero[1] = {0};
-	/* globalSum = {arr_zero, 1}; */
 	globalSum.arr = arr_zero;
+
 	globalSum.size = 1;
-	/* l = atoi(argv[2]); */
-	
-	/* l = 3; */
+	struct Number my_block; 
+	my_block = scatter(me, nprocs, 8);
 	for (i = 1; i <= digital_sum; i++){
 		tmp_prev = malloc(i*sizeof(int));
 		findNumsWithDigitalSum(digital_sum, i, tmp_prev, i); 
 	}
 	free(tmp_prev);
 
-	int* tmp; 
-	tmp = scatter(me, nprocs);
 
 	MPI_Finalize();
-
-	/* int arr1[2] = {7, 4}; */
-	/* int arr2[2] = {4, 1}; */
-	/* struct Number num; */
-	/* num = addArrays(arr2, arr1, 2, 2); */
+	return 0;
 }
 
