@@ -114,21 +114,15 @@ struct Number addArrays(int* arr1, int* arr2, int arr1_size, int arr2_size){
 	}
 	free(tmp_arr);
 	free(tmp_arr2);
-	/* free(arr1); */
+	free(arr1);
 	/* free(arr2); */
 
 	if (carry == 1){
 		new_arr = insertAtFront(1, new_arr, tmp_arr_size);
-	/* printNumber(tmp_arr2, tmp_arr_size); */
-	/* printNumber(tmp_arr, tmp_arr_size); */
-	/* printNumber(new_arr, tmp_arr_size + 1); */
-		 struct Number num  = {new_arr, tmp_arr_size + 1};
-		 return num;
+		struct Number num  = {new_arr, tmp_arr_size + 1};
+		return num;
 	}
 	else {
-	/* printNumber(tmp_arr2, tmp_arr_size); */
-	/* printNumber(tmp_arr, tmp_arr_size); */
-	/* printNumber(new_arr, tmp_arr_size); */
 		struct Number num = {new_arr, tmp_arr_size};
 		return num;
 	}
@@ -149,18 +143,30 @@ struct Number scatter(int me, int nprocs, int sequ_size){
 
 		int left = sequ_size % nprocs;
 		
-		if (me == nprocs-1){
-			blocksize += left;
-		}
+		/* if (me == nprocs-1){ */
+		/* 	blocksize += left; */
+		/* } */
+		/* if (me < left){ blocksize+=1; } */
 
 		int startIndex = (me * orig);
 		/* printf("BLOCKSIZE: %d & start index: %d\n", blocksize, startIndex); */
-		
-		my_block = malloc(blocksize*sizeof(int));
+
+		if (me < left)		
+			my_block = malloc((blocksize+1)*sizeof(int));
+		else {
+			my_block = malloc(blocksize*sizeof(int));
+		}
 		int i;
 		for (i = 0; i < blocksize; i++){
 			my_block[i] = arr[startIndex + i];
 		}
+		if (me < left){
+			blocksize += 1;
+			my_block[i] = arr[sequ_size - (me + 1)];
+
+			/* printf("NODE %d would get %d\n", me, arr[sequ_size - (me + 1)]); */
+		}
+		/* printf("ENDED AT: %d\n", startIndex + i); */
 	}
 	else {
 		blocksize = 1;
@@ -173,11 +179,7 @@ struct Number scatter(int me, int nprocs, int sequ_size){
 		}
 	}
 	/* printf("BLOCK FOR NODE: %d\n", me); */
-	/* int j; */
-	/* for (j = 0; j < blocksize; j++){ */
-	/* 	printf("%d", my_block[j]); */
-	/* } */
-	/* printf("\n"); */
+	/* printNumber(my_block, blocksize); */
 	struct Number num = {my_block, blocksize};
 	return num;
 
@@ -187,7 +189,6 @@ struct Number scatter(int me, int nprocs, int sequ_size){
 //l = current digit length being tested
 //prev = previous digits in recursion 
 //orig_size = l at the first iteration
-/* void findNumsWithDigitalSum(int n_sum, int l, int* prev, int orig_size, int *myNodesNums){ */ 
 void findNumsWithDigitalSum(int n_sum, int l, int* prev, int orig_size){ 
 
 	if (l == 1){ //Base case. Gather permutation
@@ -200,8 +201,8 @@ void findNumsWithDigitalSum(int n_sum, int l, int* prev, int orig_size){
 			}
 		}
 
-		printf("For node %d: ", me);
-		printNumber(prev, orig_size);
+		/* printf("For node %d: ", me); */
+		/* printNumber(prev, orig_size); */
 		globalSum = addArrays(globalSum.arr, prev, globalSum.size, orig_size);
 		/* printf("Sum: "); */
 		/* printNumber(globalSum.arr, globalSum.size); */
@@ -212,34 +213,38 @@ void findNumsWithDigitalSum(int n_sum, int l, int* prev, int orig_size){
 
 	int first_digit_max, i; 
 	first_digit_max = n_sum - (l - 1);
-	struct Number my_block; 
-	my_block = scatter(me, nprocs, first_digit_max);
 
-	for (i = 0; i < my_block.size; i++){
-		if (my_block.arr[i] == 0){ continue; }
-		/* printf("CURRENT: %d\n", my_block.arr[i]); */
-		int left, spot;
-		left = n_sum - my_block.arr[i];
-		spot = orig_size - l;
-		prev[spot] = my_block.arr[i];
-
-
-		findNumsWithDigitalSum(left, l-1, prev, orig_size); //Recurse with l = l-1 and n_sum = remaining digital sum
+	if (l == orig_size){
+		struct Number my_block; 
+		my_block = scatter(me, nprocs, first_digit_max);
+		for (i = 0; i < my_block.size; i++){
+			if (my_block.arr[i] == 0){ continue; }
+			/* printf("CURRENT: %d\n", my_block.arr[i]); */
+			int left, spot;
+			left = n_sum - my_block.arr[i];
+			spot = orig_size - l;
+			prev[spot] = my_block.arr[i];
 
 
+			findNumsWithDigitalSum(left, l-1, prev, orig_size); //Recurse with l = l-1 and n_sum = remaining digital sum
+
+
+		}
+		free(my_block.arr);
 	}
-
-	/* for (i = 1; i <= first_digit_max; i++){ */
-	/* 	int left, spot; */
-	/* 	left = n_sum - i; */
-	/* 	spot = orig_size - l; */
-	/* 	prev[spot] = i; */
-
-
-	/* 	findNumsWithDigitalSum(left, l-1, prev, orig_size); //Recurse with l = l-1 and n_sum = remaining digital sum */
+	else {
+		for (i = 1; i <= first_digit_max; i++){
+			int left, spot;
+			left = n_sum - i;
+			spot = orig_size - l;
+			prev[spot] = i;
 
 
-	/* } */
+			findNumsWithDigitalSum(left, l-1, prev, orig_size); //Recurse with l = l-1 and n_sum = remaining digital sum
+
+
+		}
+	}
 }
 
 
@@ -251,21 +256,51 @@ int main(int argc, char* argv[]){
 	MPI_Comm_rank(world, &me);
 
 
-	int digital_sum, result, l, *tmp_prev, i;
+	int digital_sum, result, l, *tmp_prev, i, *arr_zero;
 	digital_sum = atoi(argv[1]);
-	int arr_zero[1] = {0};
+	/* int arr_zero[1] = {0}; */
+	arr_zero = malloc(sizeof(int));
+	arr_zero[0] = 0;
 	globalSum.arr = arr_zero;
-
 	globalSum.size = 1;
-	struct Number my_block; 
-	my_block = scatter(me, nprocs, 8);
+
 	for (i = 1; i <= digital_sum; i++){
+		if (i == 1 && me != 0){ continue; }
 		tmp_prev = malloc(i*sizeof(int));
 		findNumsWithDigitalSum(digital_sum, i, tmp_prev, i); 
+		free(tmp_prev);
 	}
-	free(tmp_prev);
 
+	/* printf("Sum for node %d: ", me); */
+	/* printNumber(globalSum.arr, globalSum.size); */
+	/* printf("\n"); */
 
+	if (me == 0){
+		int i;
+		for (i = 1; i < nprocs; i++){
+			int rcv_size, *rcv_arr;
+			MPI_Recv(&rcv_size, 1, MPI_INT, i, 0, world, MPI_STATUS_IGNORE);
+			rcv_arr = malloc(rcv_size * sizeof(int));
+			MPI_Recv(rcv_arr, rcv_size, MPI_INT, i, 0, world, MPI_STATUS_IGNORE);
+			/* printf("RECIVED: %d\n", rcv_size); */
+			/* printNumber(rcv_arr, rcv_size); */
+
+			globalSum = addArrays(globalSum.arr, rcv_arr, globalSum.size, rcv_size);
+			free(rcv_arr);
+		}
+		printf("FINALL \n");
+		printNumber(globalSum.arr, globalSum.size);
+		
+	}
+	else {
+		MPI_Send(&globalSum.size, 1, MPI_INT, 0, 0, world);
+		MPI_Send(globalSum.arr, globalSum.size, MPI_INT, 0, 0, world);
+	}
+
+	struct Number num;
+	num = scatter(me, nprocs, 9);
+
+	free(globalSum.arr);
 	MPI_Finalize();
 	return 0;
 }
