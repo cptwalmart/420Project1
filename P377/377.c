@@ -20,17 +20,6 @@ struct Number{
 };
 struct Number globalSum;
 
-unsigned long long int getNumFromIntArray(int* arr, int size){
-	int i;
-	unsigned long long int cur;
-	cur = 0;
-	for (i = 0; i < size; i++){
-		/* printf("CurL : %d\n", arr[i]); */
-		cur = 10 * cur + arr[i];
-		/* printf("K: %d\n", cur); */
-	}
-	return cur;
-}
 
 void printNumber(int* arr, int arr_size){
 	int i;
@@ -115,7 +104,6 @@ struct Number addArrays(int* arr1, int* arr2, int arr1_size, int arr2_size){
 	free(tmp_arr);
 	free(tmp_arr2);
 	free(arr1);
-	/* free(arr2); */
 
 	if (carry == 1){
 		new_arr = insertAtFront(1, new_arr, tmp_arr_size);
@@ -143,13 +131,7 @@ struct Number scatter(int me, int nprocs, int sequ_size){
 
 		int left = sequ_size % nprocs;
 		
-		/* if (me == nprocs-1){ */
-		/* 	blocksize += left; */
-		/* } */
-		/* if (me < left){ blocksize+=1; } */
-
 		int startIndex = (me * orig);
-		/* printf("BLOCKSIZE: %d & start index: %d\n", blocksize, startIndex); */
 
 		if (me < left)		
 			my_block = malloc((blocksize+1)*sizeof(int));
@@ -164,9 +146,7 @@ struct Number scatter(int me, int nprocs, int sequ_size){
 			blocksize += 1;
 			my_block[i] = arr[sequ_size - (me + 1)];
 
-			/* printf("NODE %d would get %d\n", me, arr[sequ_size - (me + 1)]); */
 		}
-		/* printf("ENDED AT: %d\n", startIndex + i); */
 	}
 	else {
 		blocksize = 1;
@@ -190,7 +170,6 @@ struct Number scatter(int me, int nprocs, int sequ_size){
 //prev = previous digits in recursion 
 //orig_size = l at the first iteration
 void findNumsWithDigitalSum(int n_sum, int l, int* prev, int orig_size){ 
-
 	if (l == 1){ //Base case. Gather permutation
 		prev[orig_size-l] = n_sum;
 
@@ -204,10 +183,6 @@ void findNumsWithDigitalSum(int n_sum, int l, int* prev, int orig_size){
 		/* printf("For node %d: ", me); */
 		/* printNumber(prev, orig_size); */
 		globalSum = addArrays(globalSum.arr, prev, globalSum.size, orig_size);
-		/* printf("Sum: "); */
-		/* printNumber(globalSum.arr, globalSum.size); */
-
-
 		return;
 	}
 
@@ -282,13 +257,11 @@ int main(int argc, char* argv[]){
 			MPI_Recv(&rcv_size, 1, MPI_INT, i, 0, world, MPI_STATUS_IGNORE);
 			rcv_arr = malloc(rcv_size * sizeof(int));
 			MPI_Recv(rcv_arr, rcv_size, MPI_INT, i, 0, world, MPI_STATUS_IGNORE);
-			/* printf("RECIVED: %d\n", rcv_size); */
-			/* printNumber(rcv_arr, rcv_size); */
 
 			globalSum = addArrays(globalSum.arr, rcv_arr, globalSum.size, rcv_size);
 			free(rcv_arr);
 		}
-		printf("FINALL \n");
+		printf("Sum: \n");
 		printNumber(globalSum.arr, globalSum.size);
 		
 	}
@@ -296,9 +269,6 @@ int main(int argc, char* argv[]){
 		MPI_Send(&globalSum.size, 1, MPI_INT, 0, 0, world);
 		MPI_Send(globalSum.arr, globalSum.size, MPI_INT, 0, 0, world);
 	}
-
-	struct Number num;
-	num = scatter(me, nprocs, 9);
 
 	free(globalSum.arr);
 	MPI_Finalize();
